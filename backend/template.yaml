@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ["*"] # dev only – later restrict to CF host
+        AllowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+        AllowHeaders: ["Content-Type"] # or ["*"] for simplicity
+        MaxAge: 3600 # optional
+
+  CreateTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: create.handler
+      Events:
+        Create:
+          Type: HttpApi
+          Properties:
+            Path: /todos
+            Method: post
+            ApiId: !Ref HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: todo-items
+
+  ListTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: list.handler
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            Path: /todos
+            Method: get
+            ApiId: !Ref HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: todo-items
+
+  UpdateTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: update.handler
+      Events:
+        Update:
+          Type: HttpApi
+          Properties:
+            Path: /todos/{id}
+            Method: put
+            ApiId: !Ref HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: todo-items
+
+  DeleteTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: delete.handler
+      Events:
+        Delete:
+          Type: HttpApi
+          Properties:
+            Path: /todos/{id}
+            Method: delete
+            ApiId: !Ref HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: todo-items
+
+  TodoTable:
+    Type: AWS::Serverless::SimpleTable # SAM shorthand
+    Properties:
+      TableName: todo-items
+      PrimaryKey:
+        Name: id
+        Type: String
+
+Outputs:
+  ApiBaseUrl:
+    Description: Invoke URL of the HTTP API
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Export:
+      Name: TodoApiBaseUrl

@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+        - '*'
+        AllowMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+        AllowHeaders:
+        - Content-Type
+        MaxAge: 3600
+  CreateTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: CreateTodo
+      Handler: create.handler
+      Events:
+        Create:
+          Type: HttpApi
+          Properties:
+            Path: /todos
+            Method: post
+            ApiId:
+              Ref: HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: todo-items
+    Metadata:
+      SamResourceId: CreateTodo
+  ListTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ListTodo
+      Handler: list.handler
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            Path: /todos
+            Method: get
+            ApiId:
+              Ref: HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName: todo-items
+    Metadata:
+      SamResourceId: ListTodo
+  UpdateTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: UpdateTodo
+      Handler: update.handler
+      Events:
+        Update:
+          Type: HttpApi
+          Properties:
+            Path: /todos/{id}
+            Method: put
+            ApiId:
+              Ref: HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: todo-items
+    Metadata:
+      SamResourceId: UpdateTodo
+  DeleteTodo:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: DeleteTodo
+      Handler: delete.handler
+      Events:
+        Delete:
+          Type: HttpApi
+          Properties:
+            Path: /todos/{id}
+            Method: delete
+            ApiId:
+              Ref: HttpApi
+      Environment:
+        Variables:
+          TODO_TABLE: todo-items
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: todo-items
+    Metadata:
+      SamResourceId: DeleteTodo
+  TodoTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: todo-items
+      PrimaryKey:
+        Name: id
+        Type: String
+Outputs:
+  ApiBaseUrl:
+    Description: Invoke URL of the HTTP API
+    Value:
+      Fn::Sub: https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+    Export:
+      Name: TodoApiBaseUrl
