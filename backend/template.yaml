@@ -9,12 +9,6 @@ Globals:
 Resources:
   HttpApi:
     Type: AWS::Serverless::HttpApi
-    Properties:
-      CorsConfiguration:
-        AllowOrigins: ["*"] # dev only – later restrict to CF host
-        AllowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-        AllowHeaders: ["Content-Type"] # or ["*"] for simplicity
-        MaxAge: 3600 # optional
 
   CreateTodo:
     Type: AWS::Serverless::Function
@@ -25,7 +19,7 @@ Resources:
         Create:
           Type: HttpApi
           Properties:
-            Path: /todos
+            Path: /api/todos
             Method: post
             ApiId: !Ref HttpApi
       Environment:
@@ -44,7 +38,7 @@ Resources:
         List:
           Type: HttpApi
           Properties:
-            Path: /todos
+            Path: /api/todos
             Method: get
             ApiId: !Ref HttpApi
       Environment:
@@ -63,7 +57,7 @@ Resources:
         Update:
           Type: HttpApi
           Properties:
-            Path: /todos/{id}
+            Path: /api/todos/{id}
             Method: put
             ApiId: !Ref HttpApi
       Environment:
@@ -82,7 +76,7 @@ Resources:
         Delete:
           Type: HttpApi
           Properties:
-            Path: /todos/{id}
+            Path: /api/todos/{id}
             Method: delete
             ApiId: !Ref HttpApi
       Environment:
@@ -101,8 +95,7 @@ Resources:
         Type: String
 
 Outputs:
-  ApiBaseUrl:
-    Description: Invoke URL of the HTTP API
-    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  ApiOrigin:
+    Value: !Sub "${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
     Export:
-      Name: TodoApiBaseUrl
+      Name: TodoApiOrigin

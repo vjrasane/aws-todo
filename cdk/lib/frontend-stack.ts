@@ -7,12 +7,11 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 import * as path from 'path';
-import * as cr from 'aws-cdk-lib/custom-resources';
 export class FrontendStack extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
 
-        const apiUrl = cdk.Fn.importValue("TodoApiBaseUrl");
+        const apiOrigin = cdk.Fn.importValue("TodoApiOrigin");
 
         const websiteBucket = new s3.Bucket(this, 'ReactAppBucket', {
             publicReadAccess: false,
@@ -32,6 +31,16 @@ export class FrontendStack extends Stack {
                 }),
                 viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             },
+            additionalBehaviors: {
+                'api/*': {
+                    origin: new origins.HttpOrigin(apiOrigin, {
+                        originPath: '',
+                        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+                    }),
+                    allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+                    cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+                }
+            },
             defaultRootObject: 'index.html',
             errorResponses: [
                 {
@@ -42,7 +51,8 @@ export class FrontendStack extends Stack {
                 },
             ],
         });
-        const deployment = new s3deploy.BucketDeployment(this, 'DeployWebsite', {
+
+        new s3deploy.BucketDeployment(this, 'DeployWebsite', {
             sources: [
                 s3deploy.Source.asset(
                     path.join(__dirname, '../../frontend/dist')
@@ -52,29 +62,6 @@ export class FrontendStack extends Stack {
             distribution,
             distributionPaths: ['/*'],
         })
-
-        const effect = {
-            service: 'S3',
-            action: 'putObject',
-            parameters: {
-                Bucket: websiteBucket.bucketName,
-                Key: 'config.json',
-                Body: `{"apiUrl":"${apiUrl}"}`,
-                ContentType: 'application/json',
-                CacheControl: 'max-age=60',
-            },
-            physicalResourceId: cr.PhysicalResourceId.of(new Date().toISOString()),
-        }
-        const putConfig = new cr.AwsCustomResource(this, 'PutConfigJson', {
-            onCreate: effect,
-            onUpdate: effect,
-            policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
-                resources: [websiteBucket.arnForObjects('config.json')],
-            }),
-        });
-
-        putConfig.node.addDependency(deployment);
-        putConfig.node.addDependency(distribution);
 
         new cdk.CfnOutput(this, 'BucketURL', {
             value: websiteBucket.bucketWebsiteUrl,
